@@ -70,22 +70,23 @@ commits_to_git(_,Head,[], Head, _Options) :- !.
 commits_to_git(init, init, [_-H|T], Tip, Options) :-
     !,
     store_blob(H, Options),
-    init_tree(H, Tree, Options),
+    init_tree(H, '', Tree, TreeContent, Options),
     store_commit(H, Tree, init, Hash, Options),
-    commits_to_git(H, Hash, T, Tip, Options).
-commits_to_git(_GittyParent, GitParent, [_-H|T], Tip, Options) :-
+    commits_to_git(TreeContent, Hash, T, Tip, Options).
+commits_to_git(TreeContent, GitParent, [_-H|T], Tip, Options) :-
     !,
     store_blob(H, Options),
-    init_tree(H, Tree, Options),
+    init_tree(H, TreeContent, Tree, NewTreeContent, Options),
     store_commit(H, Tree, GitParent, Hash, Options),
-    commits_to_git(H, Hash, T, Tip, Options).
+    commits_to_git(NewTreeContent, Hash, T, Tip, Options).
 
-init_tree(Meta, TreeHash, Options) :-
+init_tree(Meta, OldContent, TreeHash, NewContent, Options) :-
     gv_hash_atom(Codes, Meta.data),
     atom_codes(HashCode,Codes),
     format(atom(Hdr), '100644 ~w\u0000', [Meta.name]),
     atom_concat(Hdr, HashCode, A),
-    store_git_object(_{content:A}, TreeHash, [type(tree)|Options]).
+    atom_concat(OldContent, A, NewContent),
+    store_git_object(_{content:NewContent}, TreeHash, [type(tree)|Options]).
 
 store_commit(H, TreeHash, GitParent, Hash, Options) :-
     find_author(H, Author),
