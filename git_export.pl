@@ -1,5 +1,5 @@
 :- module(git_export, [
-              git_export/1  % +GitDir  export gitty to GitDir
+              git_export/1  % +GitDir,  export gitty to bare git repo in GitDir
           ]).
 :- use_module(lib/storage).
 :- use_module(library(git)).
@@ -76,7 +76,7 @@ commits_to_git(_,Head,[], Head, _Options) :- !.
 commits_to_git(init, init, [_-H|T], Tip, Options) :-
     !,
     store_blob(H, Options),
-    update_tree(H, '', Tree, TreeContent, Options),
+    update_tree(H, tree{}, Tree, TreeContent, Options),
     store_commit(H, Tree, init, Hash, Options),
     commits_to_git(TreeContent, Hash, T, Tip, Options).
 commits_to_git(TreeContent, GitParent, [_-H|T], Tip, Options) :-
@@ -91,8 +91,13 @@ update_tree(Meta, OldContent, TreeHash, NewContent, Options) :-
     atom_codes(HashCode,Codes),
     format(atom(Hdr), '100644 ~w\u0000', [Meta.name]),
     atom_concat(Hdr, HashCode, A),
-    atom_concat(OldContent, A, NewContent),
-    store_git_object(_{content:NewContent}, TreeHash, [type(tree)|Options]).
+    put_dict(Meta.name, OldContent, A, NewContent),
+    treedict_treecontent(NewContent, TreeContent),
+    store_git_object(_{content:TreeContent}, TreeHash, [type(tree)|Options]).
+
+treedict_treecontent(D, C) :-
+    findall(Value, get_dict(_Key, D, Value), L),
+    atomic_list_concat(L, C).
 
 store_commit(H, TreeHash, GitParent, Hash, Options) :-
     find_author(H, Author),
