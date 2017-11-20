@@ -1,7 +1,26 @@
-:- module(git_export, []).
+:- module(git_export, [
+              git_export/1  % +GitDir  export gitty to GitDir
+          ]).
 :- use_module(lib/storage).
 :- use_module(library(git)).
 :- use_module(library(filesex)).
+
+
+git_export(Target) :-
+    git_init(Target),
+    gitty_heads(Heads),
+    find_all_commits(Heads, Commits0),
+    keysort(Commits0, Commits),
+    commits_to_git(init, init, Commits, Tip, [directory(Target)]),
+    catch(git(['update-ref', 'refs/heads/master', Tip],
+              [directory(Target)]), _, fail).
+
+gitty_heads(Heads) :-
+    findall(Commit,
+            (   storage_file(_File, _Data, Meta),
+                get_dict(commit, Meta, Commit)
+            ),
+            Heads).
 
 author_url(X,X).
 author_email(_X, 'anonymous@example.com').
@@ -23,19 +42,6 @@ git_init(Target) :-
 git_init(Target) :-
     make_directory_path(Target),
     git([init, '--bare'], [directory(Target)]).
-
-git_export(Target) :-
-    git_init(Target),
-    findall(Commit,
-            (   storage_file(_File, _Data, Meta),
-                get_dict(commit, Meta, Commit)
-            ),
-            Heads),
-    find_all_commits(Heads, Commits0),
-    keysort(Commits0, Commits),
-    commits_to_git(init, init, Commits, Tip, [directory(Target)]),
-    catch(git(['update-ref', 'refs/heads/master', Tip],
-              [directory(Target)]), _, fail).
 
 
 find_all_commits([], []).
